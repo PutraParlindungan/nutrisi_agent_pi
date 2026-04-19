@@ -27,5 +27,5 @@ if __name__ == "__main__":
     koneksi = get_db_connection()
     
     if koneksi:
-        print("Status: Berhasil terhubung ke database, Son!")
+        print("Status: Berhasil terhubung ke database!")
         koneksi.close()
