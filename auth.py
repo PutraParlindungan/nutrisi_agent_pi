@@ -1,5 +1,4 @@
 import bcrypt
-import uuid
 from database import get_db_connection
 
 def hash_password(password: str) -> str:
