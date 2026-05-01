@@ -1,0 +1,9 @@
+[theme]
+base="dark"
+primaryColor="#1999dd" 
+backgroundColor="#000000"          # Warna latar utama (Hitam pekat/netral tanpa biru)
+secondaryBackgroundColor="#111111" # Warna latar sidebar (Sedikit lebih terang dari latar utama)
+textColor="#FFFFFF"
+
+[client]
+toolbarMode = "minimal"
