@@ -61,38 +61,43 @@ def cari_nutrisi_makanan(nama_makanan: str, nama_asli: str = "") -> str:
     # ==========================================
     token = get_fatsecret_token()
     if token:
+        # [UBAHAN BARU]: Bersihkan string dari kutip dan spasi berlebih bawaan AI
+        clean_nama = nama_makanan.replace("'", "").replace('"', '').strip()
+        
         url = "https://platform.fatsecret.com/rest/server.api"
         headers = {"Authorization": f"Bearer {token}"}
         params = {
             "method": "foods.search",
-            "search_expression": nama_makanan,
+            "search_expression": clean_nama,
             "format": "json",
-            "region": "ID",        
-            "max_results": 30
+            "region": "ID",
+            "max_results": 5
         }
         
         try:
             response = requests.get(url, headers=headers, params=params)
             if response.status_code == 200:
                 data = response.json()
+                
+                # [TAMBAHAN DEBUG]: Intip kueri bersih dan respons mentah API
+                print(f"[DEBUG] Kueri Bersih: '{clean_nama}'")
+                print(f"[DEBUG] RAW JSON: {data}")
+                
                 food_data = data.get('foods', {}).get('food')
                 
                 if food_data:
                     if not isinstance(food_data, list):
                         food_data = [food_data]
 
-                    best_match = None
-                    for item in food_data:
-                        nama_hasil = item['food_name'].lower()
-                        if all(kata in nama_hasil for kata in kata_kunci):
-                            best_match = item
-                            break
-                    
-                    if best_match:
-                        print("[DEBUG] Ditemukan di Layer 1 (FatSecret)")
-                        return f"[SUMBER: FATSECRET] Data gizi untuk {best_match['food_name']}: {best_match['food_description']}"
+                    best_match = food_data[0]
+                    print(f"[DEBUG] Ditemukan di Layer 1: {best_match['food_name']}")
+                    return f"[SUMBER: FATSECRET] Data gizi untuk {best_match['food_name']}: {best_match['food_description']}"
+                else:
+                    print(f"[DEBUG] FatSecret tidak menemukan '{clean_nama}'")
+            else:
+                print(f"[DEBUG] API FatSecret Error: HTTP {response.status_code}")
         except Exception as e:
-            print(f"[DEBUG] Error Layer 1: {str(e)}")
+            print(f"[DEBUG] Error Sistem Layer 1: {str(e)}")
 
     # ==========================================
     # LAYER 2: SUPABASE INTERNAL (KAGGLE/TKPI)
