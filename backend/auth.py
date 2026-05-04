@@ -99,6 +99,65 @@ def login_user(username: str, password: str) -> dict:
     finally:
         conn.close()
 
+def update_user_avatar(user_id: int, file_path: str) -> bool:
+    """Memperbarui path foto profil pengguna di database."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            query = "UPDATE users SET avatar_path = %s WHERE user_id = %s;"
+            cur.execute(query, (file_path, user_id))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Error update_avatar: {e}")
+        return False
+    finally:
+        conn.close()
+
+def update_user_name(user_id: int, new_name: str) -> bool:
+    """Memperbarui nama tampilan pengguna di tabel users."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            query = "UPDATE users SET name = %s WHERE user_id = %s;"
+            cur.execute(query, (new_name, user_id))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Error update_user_name: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_by_id(user_id: int) -> dict:
+    """Mengambil data pengguna berdasarkan ID untuk auto-login via cookie."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            query = "SELECT user_id, name, username, role, avatar_path FROM users WHERE user_id = %s;"
+            cur.execute(query, (user_id,))
+            user = cur.fetchone()
+            if user:
+                return {
+                    "user_id": user[0], 
+                    "name": user[1], 
+                    "username": user[2], 
+                    "role": user[3], 
+                    "avatar_path": user[4]
+                }
+            return None
+    except Exception as e:
+        print(f"Error get_user_by_id: {e}")
+        return None
+    finally:
+        conn.close()
+
 # ==========================================
 # BLOK PENGUJIAN (UNIT TESTING) DI TERMINAL
 # ==========================================

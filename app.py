@@ -2,11 +2,25 @@ import streamlit as st
 
 st.set_page_config(page_title="NutriAgent - AI Nutritionist", page_icon="🥗", layout="wide")
 
-pg = st.navigation([
-    st.Page("pages/main.py", title="Dashboard", icon=":material/dashboard:"),
-    st.Page("pages/chat.py", title="Agent Nutrisi", icon=":material/smart_toy:")
-])
+# 1. Inisialisasi halaman dasar
+daftar_halaman = [
+    st.Page("pages/main.py", title="Dashboard", icon=":material/dashboard:")
+]
 
+# 2. Penambahan halaman berdasarkan status sesi
+if st.session_state.get("logged_in"):
+    daftar_halaman.append(
+        st.Page("pages/chat.py", title="Agent Nutrisi", icon=":material/smart_toy:")
+    )
+    
+if st.session_state.get("logged_in") and st.session_state.get("role") == "admin":
+    daftar_halaman.append(
+        st.Page("pages/3_admin.py", title="Super Admin", icon=":material/security:")
+    )
+
+pg = st.navigation(daftar_halaman)
+
+# 3. Injeksi CSS Kustom (Tetap sama seperti aslinya)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
@@ -24,16 +38,6 @@ st.markdown("""
     .stAppDeployButton { display: none !important; }
     [data-testid="stHeaderActionElements"] { display: none !important; }
     header[data-testid="stHeader"] { background: transparent !important; }
-
-    [data-testid="stSidebarNavLink"] span:not([data-testid="stIconMaterial"]) {
-        font-size: 16px !important;
-        font-weight: 500 !important;
-    }
-    
-    [data-testid="stSidebar"] button p {
-        font-size: 14px !important;
-        font-weight: 400 !important;
-    }
 
     [data-testid="stChatMessage"] {
         border-radius: 15px !important;
@@ -63,10 +67,6 @@ st.markdown("""
         border: 2px solid #1999dd !important;  
         color: #1999dd !important;             
         border-radius: 8px !important;         
-    }
-    
-    [data-testid="stSidebarNavItems"] [data-testid="stIconMaterial"] {
-        color: #1999dd !important; 
     }
     
     [data-testid="stChatMessageAvatar"] svg {

@@ -1,17 +1,20 @@
+import re
+import time
 import streamlit as st
 from backend import auth 
-import re
-from components import sidebar_profil 
+from components import sidebar_profil, init_session 
+from streamlit_cookies_controller import CookieController
 
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user_id = None
-    st.session_state.name = ""
-    st.session_state.role = "user"
-    st.session_state.username = ""
+cookie = init_session()
 
-if "reg_form_key" not in st.session_state:
-    st.session_state.reg_form_key = 0
+# ==========================================
+# BLOKIR UI SELAMA LOADING COOKIE
+# ==========================================
+if st.session_state.get("is_checking_cookie"):
+    # Tampilkan spinner saja, lalu hentikan eksekusi kode di bawahnya
+    with st.spinner("Memuat sesi Anda..."):
+        time.sleep(0.5) # Beri nafas sedikit agar UI tidak crash
+    st.stop()
 
 def logout():
     for key in list(st.session_state.keys()):
@@ -33,7 +36,7 @@ def cek_password_kuat(password):
 
 if st.session_state.logged_in:
     with st.sidebar:
-        sidebar_profil() # <-- Cukup dipanggil 1 baris ini saja!
+        sidebar_profil() 
 
 st.title("🥗 NutriAgent PI")
 st.markdown("""
@@ -50,7 +53,9 @@ Sistem ini dibangun menggunakan ekosistem **LangGraph** dan model **Llama-3.3-70
 st.divider()
 
 if not st.session_state.logged_in:
-    st.info("💡 Untuk menggunakan Agen AI di menu 'Agent Nutrisi', silakan masuk atau daftar terlebih dahulu.")
+    # BLOKIR FORM LOGIN PADA PUTARAN PERTAMA
+    if not st.session_state.logged_in:
+        st.info("💡 Untuk menggunakan Agen AI di menu 'Agent Nutrisi', silakan masuk atau daftar terlebih dahulu.")
 
     tab_login, tab_reg = st.tabs(["Masuk", "Daftar Akun"])
 
@@ -68,18 +73,25 @@ if not st.session_state.logged_in:
                     st.session_state.name = res["data"]["name"]
                     st.session_state.role = res["data"]["role"]
                     st.session_state.username = res["data"]["username"]
+                    st.session_state.avatar_path = res["data"].get("avatar_path", "")
+                    
+                    # ==========================================
+                    # 4. TANAM COOKIE SAAT LOGIN BERHASIL
+                    # ==========================================
+                    # Cookie berlaku selama 7 hari (7 * 86400 detik)
+                    cookie.set('user_id', res["data"]["user_id"], max_age=604800)
+                    
                     st.success(f"Selamat datang, {res['data']['name']}!")
+                    time.sleep(1)
                     st.rerun()
                 else:
                     st.error(res["message"])
 
     with tab_reg:
-        # Tangkap pesan sukses dari memori
         if "reg_success" in st.session_state:
             st.success(st.session_state.reg_success)
             del st.session_state.reg_success 
 
-        # KUNCI FORM DIBUAT DINAMIS (reg_form_0, reg_form_1, dst)
         with st.form(f"reg_form_{st.session_state.reg_form_key}", clear_on_submit=False):
             new_name = st.text_input("Nama Lengkap")
             new_user = st.text_input("Username Baru")
@@ -100,10 +112,7 @@ if not st.session_state.logged_in:
                     else:
                         reg_res = auth.register_user(new_name, new_user, new_pass)
                         if reg_res["success"]:
-                            # Simpan pesan sukses
                             st.session_state.reg_success = "✅ Akun berhasil dibuat! Silakan klik tab 'Masuk' di atas untuk login."
-                            
-                            # TRICK: Tambah angka kunci form agar form lama dihancurkan dan diganti form baru yang kosong
                             st.session_state.reg_form_key += 1
                             st.rerun()
                         else:
