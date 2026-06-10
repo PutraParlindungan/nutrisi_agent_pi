@@ -1,3 +1,4 @@
+import re
 import bcrypt
 from backend.database import get_db_connection
 
@@ -157,6 +158,52 @@ def get_user_by_id(user_id: int) -> dict:
         return None
     finally:
         conn.close()
+
+def update_user_password(user_id: int, old_password: str, new_password: str) -> dict:
+    """Memperbarui kata sandi dengan verifikasi keamanan sandi lama."""
+    conn = get_db_connection()
+    if not conn:
+        return {"success": False, "message": "Gagal terhubung ke database."}
+    
+    try:
+        with conn.cursor() as cur:
+            # Tarik password_hash saat ini
+            cur.execute("SELECT password_hash FROM users WHERE user_id = %s;", (user_id,))
+            user = cur.fetchone()
+            
+            if not user:
+                return {"success": False, "message": "Akun tidak ditemukan."}
+            
+            current_hash = user[0]
+            
+            # Verifikasi password lama
+            if not verify_password(old_password, current_hash):
+                return {"success": False, "message": "Kata sandi lama salah."}
+            
+            # Hash password baru dan simpan (Gunakan format snake_case sesuai standar DB kamu)
+            new_hashed_pw = hash_password(new_password)
+            cur.execute("UPDATE users SET password_hash = %s WHERE user_id = %s;", (new_hashed_pw, user_id))
+            conn.commit()
+            
+            return {"success": True, "message": "Kata sandi berhasil diperbarui!"}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": f"Terjadi kesalahan sistem: {str(e)}"}
+    finally:
+        conn.close()
+
+def cek_password_kuat(password):
+    if len(password) < 8:
+        return False, "Password minimal 8 karakter."
+    if not re.search(r"[a-z]", password):
+        return False, "Password harus mengandung minimal 1 huruf kecil."
+    if not re.search(r"[A-Z]", password):
+        return False, "Password harus mengandung minimal 1 huruf besar."
+    if not re.search(r"\d", password):
+        return False, "Password harus mengandung minimal 1 angka."
+    if not re.search(r"[@$!%*?&#]", password):
+        return False, "Password harus mengandung minimal 1 simbol khusus (@, $, !, %, dll)."
+    return True, "Kuat"
 
 # ==========================================
 # BLOK PENGUJIAN (UNIT TESTING) DI TERMINAL

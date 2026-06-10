@@ -1,4 +1,5 @@
 from backend.database import get_db_connection
+import time
 import re
 
 def get_all_sessions(user_id: int) -> list:
@@ -93,50 +94,64 @@ def get_session_messages(session_id: int) -> list:
         conn.close()
 
 def extract_and_save_nutrition(user_id: int, ai_reply: str) -> int:
-    """
-    Memindai balasan AI menggunakan Regex untuk menarik data gizi 
-    dan menyimpannya ke tabel nutrition_logs secara abadi.
-    """
-    # Memecah teks berdasarkan emoji 📋 agar bisa memproses lebih dari 1 makanan sekaligus
-    foods = ai_reply.split("📋")
     saved_count = 0
     
-    # Abaikan indeks [0] karena isinya pasti kalimat basa-basi sebelum tabel makanan
-    for food_block in foods[1:]:
-        try:
-            # Ekstrak Nama Makanan (Mengambil teks di antara tanda bintang **)
-            name_match = re.search(r"\*\*(.*?)\*\*", food_block)
-            food_name = name_match.group(1).strip() if name_match else "Makanan Tidak Diketahui"
-            
-            # Ekstrak Angka Makronutrisi (Mengambil angka desimal/bulat setelah titik dua)
-            cal_match = re.search(r"🔥 Kalori\s*:\s*([\d.]+)", food_block)
-            calories = float(cal_match.group(1)) if cal_match else 0.0
-            
-            pro_match = re.search(r"🥩 Protein\s*:\s*([\d.]+)", food_block)
-            protein = float(pro_match.group(1)) if pro_match else 0.0
-            
-            fat_match = re.search(r"🧈 Lemak\s*:\s*([\d.]+)", food_block)
-            fat = float(fat_match.group(1)) if fat_match else 0.0
-            
-            carb_match = re.search(r"🍚 Karbo\s*:\s*([\d.]+)", food_block)
-            carbs = float(carb_match.group(1)) if carb_match else 0.0
-            
-            # Eksekusi simpan ke database (Mengikat langsung ke user_id, bukan session_id)
-            conn = get_db_connection()
-            if conn:
-                with conn.cursor() as cur:
-                    query = """
-                        INSERT INTO nutrition_logs (user_id, food_name, calories, protein, fat, carbs) 
-                        VALUES (%s, %s, %s, %s, %s, %s);
-                    """
-                    cur.execute(query, (user_id, food_name, calories, protein, fat, carbs))
-                    conn.commit()
-                conn.close()
-                saved_count += 1
+    # Memecah setiap blok yang diawali dengan ikon 📋 sampai bertemu 📋 lagi atau 📊
+    blok_makanan = re.findall(r"📋(.*?)(?=📋|📊|$)", ai_reply, re.DOTALL)
+    
+    if not blok_makanan:
+        return 0
+
+    conn = None
+    try:
+        waktu_mulai = time.time()
+        print("\n[TEST DB] Membuka 1 koneksi database...")
+        conn = get_db_connection()
+        if not conn: return 0
+
+        with conn.cursor() as cur:
+            query = """
+                INSERT INTO nutrition_logs (user_id, food_name, calories, protein, fat, carbs) 
+                VALUES (%s, %s, %s, %s, %s, %s);
+            """
+
+            for blok_teks in blok_makanan:
+                # Ambil baris pertama sebagai nama makanan, bersihkan bintang & sumber
+                baris_pertama = blok_teks.strip().split('\n')[0]
+                food_name = re.sub(r"[\*\#]", "", baris_pertama).split("(Sumber")[0].strip()
                 
-        except Exception as e:
-            print(f"Error parsing food block: {e}")
+                # Pengaman ganda: lewati jika kebetulan menangkap "Total" atau kosong
+                if "total" in food_name.lower() or not food_name:
+                    continue
+
+                cal_match = re.search(r"Kalori\s*:\s*([\d.]+)", blok_teks, re.IGNORECASE)
+                pro_match = re.search(r"Protein\s*:\s*([\d.]+)", blok_teks, re.IGNORECASE)
+                fat_match = re.search(r"Lemak\s*:\s*([\d.]+)", blok_teks, re.IGNORECASE)
+                carb_match = re.search(r"Karbo\s*:\s*([\d.]+)", blok_teks, re.IGNORECASE)
+                
+                if cal_match:
+                    calories = float(cal_match.group(1))
+                    protein = float(pro_match.group(1)) if pro_match else 0.0
+                    fat = float(fat_match.group(1)) if fat_match else 0.0
+                    carbs = float(carb_match.group(1)) if carb_match else 0.0
+                    
+                    print(f"[TEST DB] ⏳ Menyimpan: {food_name}")
+                    cur.execute(query, (user_id, food_name, calories, protein, fat, carbs))
+                    saved_count += 1
             
+            if saved_count > 0:
+                print(f"[TEST DB] 💾 Melakukan COMMIT {saved_count} data sekaligus...")
+                conn.commit()
+            
+        waktu_selesai = time.time()
+        print(f"[TEST DB] Koneksi ditutup. Waktu total: {waktu_selesai - waktu_mulai:.4f} detik\n")
+            
+    except Exception as e:
+        print(f"Error parsing food block: {e}")
+        if conn: conn.rollback()
+    finally:
+        if conn: conn.close()
+        
     return saved_count
 
 
@@ -173,3 +188,4 @@ def rename_session(session_id: int, new_name: str) -> bool:
         return False
     finally:
         conn.close()
+

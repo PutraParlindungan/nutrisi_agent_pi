@@ -1,9 +1,8 @@
-import streamlit as st
 import os
 import time
 import base64
-from streamlit_cookies_controller import CookieController
-from backend.auth import update_user_avatar, update_user_name, get_user_by_id
+import streamlit as st
+from backend.auth import update_user_avatar, update_user_name, update_user_password, cek_password_kuat
 
 
 def get_avatar_src():
@@ -17,85 +16,184 @@ def get_avatar_src():
             return f"data:{mime};base64,{b64}"
     return f"https://api.dicebear.com/7.x/initials/svg?seed={st.session_state.get('username', 'user')}"
 
-@st.dialog("Pengaturan Akun")
+# ==========================================
+# DIALOG INDUK UTAMA
+# ==========================================
+@st.dialog("Profil Akun")
 def tampilkan_profil():
-    col_a, col_b = st.columns([1, 2])
+    col_a, col_b = st.columns([1.2, 2])
     with col_a:
-        st.image(get_avatar_src(), width=80)
+        # Pastikan get_avatar_src() punya fallback jika user belum punya foto
+        st.image(get_avatar_src(), width="stretch")
     with col_b:
         st.markdown(f"### {st.session_state.name}")
         st.markdown(f"**Username:** @{st.session_state.username}")
         st.markdown(f"**Role:** `{st.session_state.role.upper()}`")
         st.markdown(f"**Status:** 🟢 Aktif")
+
+    with st.expander(":material/settings: Edit Profil"):
+        if "menu_edit_aktif" not in st.session_state:
+            st.session_state.menu_edit_aktif = None
+
+        st.markdown("Pilih data yang ingin Anda perbarui:")
+        col1, col2, col3 = st.columns(3)
+        
+        menu_sekarang = st.session_state.menu_edit_aktif
+        
+        with col1:
+            type_n = "primary" if menu_sekarang == "nama" else "secondary"
+            st.button(":material/badge: Nama", type=type_n, width="stretch", 
+                      on_click=lambda: st.session_state.update(menu_edit_aktif=None if st.session_state.menu_edit_aktif == "nama" else "nama"))
+        
+        with col2:
+            type_f = "primary" if menu_sekarang == "foto" else "secondary"
+            st.button(":material/image: Foto", type=type_f, width="stretch", 
+                      on_click=lambda: st.session_state.update(menu_edit_aktif=None if st.session_state.menu_edit_aktif == "foto" else "foto"))
+        
+        with col3:
+            type_s = "primary" if menu_sekarang == "password" else "secondary"
+            st.button(":material/lock: Password", type=type_s, width="stretch", 
+                      on_click=lambda: st.session_state.update(menu_edit_aktif=None if st.session_state.menu_edit_aktif == "password" else "password"))
+
+        # --- LOGIKA EDIT NAMA ---
+        if st.session_state.menu_edit_aktif == "nama":
+            st.divider()
+            st.caption("Edit Nama Lengkap")
+            
+            # Gunakan session_state key agar bisa dikosongkan
+            if "input_nama_baru" not in st.session_state:
+                st.session_state.input_nama_baru = st.session_state.name
+                
+            new_name = st.text_input("Nama Baru", key="input_nama_baru")
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Simpan", type="primary", width="stretch", key="save_n"):
+                    if new_name.strip() and new_name != st.session_state.name:
+                        if update_user_name(st.session_state.user_id, new_name):
+                            st.session_state.name = new_name
+                            # Tutup sub-menu setelah sukses (mengosongkan input secara alami)
+                            st.session_state.menu_edit_aktif = None 
+                            st.rerun() # Diperlukan khusus nama agar header profil langsung berubah
+                    else:
+                        st.warning("Nama tidak boleh kosong atau sama dengan yang lama.")
+            with c2:
+                st.button("Batal", width="stretch", key="cancel_n", on_click=lambda: st.session_state.update(menu_edit_aktif=None))
+
+        # --- LOGIKA EDIT FOTO ---
+        elif st.session_state.menu_edit_aktif == "foto":
+            st.divider()
+            st.caption("Ganti Foto Profil")
+            uploaded_file = st.file_uploader("Pilih file gambar", type=["jpg", "png", "jpeg"], key="uploader_foto")
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Simpan", type="primary", width="stretch", key="save_f"):
+                    if uploaded_file:
+                        if uploaded_file.size > 2 * 1024 * 1024: # Validasi ukuran maks 2MB
+                            st.error("Ukuran foto maksimal 2MB!")
+                        else:
+                            UPLOAD_DIR = "assets/avatars"
+                            if not os.path.exists(UPLOAD_DIR): os.makedirs(UPLOAD_DIR)
+                            file_path = os.path.join(UPLOAD_DIR, f"user_{st.session_state.user_id}.{uploaded_file.name.split('.')[-1]}")
+                            with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
+                            
+                            if update_user_avatar(st.session_state.user_id, file_path):
+                                st.session_state.avatar_path = file_path
+                                # Menutup sub-menu akan mengosongkan uploader box
+                                st.session_state.menu_edit_aktif = None 
+                                st.rerun() # Refresh agar foto di profil atas langsung berubah
+                    else:
+                        st.warning("Silakan pilih foto terlebih dahulu.")
+            with c2:
+                st.button("Batal", width="stretch", key="cancel_f", on_click=lambda: st.session_state.update(menu_edit_aktif=None))
+
+        # --- LOGIKA EDIT PASSWORD ---
+        elif st.session_state.menu_edit_aktif == "password":
+            st.divider()
+            st.caption("Perbarui Kata Password")
+            
+            # Inisialisasi counter unik jika belum ada
+            if "password_counter" not in st.session_state:
+                st.session_state.password_counter = 0
+            
+            # Tempelkan counter ke dalam key agar menjadi dinamis (misal: "old_p_0", "old_p_1", dst)
+            k = str(st.session_state.password_counter)
+            old_p = st.text_input("Password Lama", type="password", key=f"old_p_{k}")
+            new_p = st.text_input("Password Baru", type="password", key=f"new_p_{k}")
+            conf_p = st.text_input("Konfirmasi Password", type="password", key=f"conf_p_{k}")
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                # Tambahkan key acak di tombol juga agar tidak bentrok
+                if st.button("Simpan", type="primary", width="stretch", key=f"btn_save_s_{k}"):
+                    if not old_p or not new_p or not conf_p:
+                        st.warning("Semua kolom password wajib diisi!")
+                    elif new_p != conf_p:
+                        st.error("Konfirmasi password tidak cocok!")
+                    elif old_p == new_p:
+                        st.warning("Password baru tidak boleh sama dengan password lama.")
+                    else:
+                        # EKSEKUSI VALIDASI KUAT DI SINI
+                        is_strong, msg_strength = cek_password_kuat(new_p)
+                        if not is_strong:
+                            st.error(f"⚠️ {msg_strength}")
+                        else:
+                            res = update_user_password(st.session_state.user_id, old_p, new_p)
+                            if res["success"]:
+                                st.session_state.password_counter += 1
+                                st.session_state.menu_edit_aktif = None 
+                                st.success("✅ Password berhasil diubah!")
+                                time.sleep(1.5)
+                                st.rerun()
+                            else:
+                                st.error(res["message"])
+            with c2:
+                st.button("Batal", width="stretch", key=f"btn_cancel_s_{k}", on_click=lambda: st.session_state.update(menu_edit_aktif=None))
     
-    st.divider()
-    
-    # === JADIKAN SATU DALAM EXPANDER (TOMBOL LIPAT) ===
-    with st.expander("✏️ Edit Profil"):
+    # ==========================================
+    # LOGIKA KONFIRMASI KELUAR AKUN
+    # ==========================================
+    if "konfirmasi_keluar" not in st.session_state:
+        st.session_state.konfirmasi_keluar = False
+
+    if not st.session_state.konfirmasi_keluar:
+        st.button(":material/logout: Keluar Akun", type="primary", width="stretch", on_click=lambda: st.session_state.update(konfirmasi_keluar=True))
+    else:
+        st.warning("⚠️ Apakah Anda yakin ingin keluar?")
+        col_ya, col_batal = st.columns(2)
         
-        # 1. Bagian Ganti Nama
-        st.markdown("**Ganti Nama Tampilan**")
-        new_name = st.text_input("Nama Baru", value=st.session_state.name, label_visibility="collapsed")
-        
-        if st.button("Simpan Nama Baru", use_container_width=True):
-            if new_name.strip() and new_name != st.session_state.name:
-                if update_user_name(st.session_state.user_id, new_name):
-                    st.session_state.name = new_name
-                    st.success("Nama berhasil diperbarui!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("Gagal menyimpan ke database.")
-            elif new_name == st.session_state.name:
-                st.warning("Nama belum diubah.")
+        with col_ya:
+            if st.button("Ya, Keluar", type="primary", width="stretch"):
+                # 1. Bersihkan parameter URL
+                st.query_params.clear()
                 
-        st.divider()
-        
-        # 2. Bagian Ganti Foto
-        st.markdown("**Ganti Foto Profil**")
-        uploaded_file = st.file_uploader("Upload file", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
-        
-        if uploaded_file is not None:
-            if st.button("Simpan Foto Baru", use_container_width=True):
-                UPLOAD_DIR = "assets/avatars"
-                if not os.path.exists(UPLOAD_DIR):
-                    os.makedirs(UPLOAD_DIR)
+                # 2. Hapus cookie dengan aman
+                if "cookie_manager" in st.session_state:
+                    try:
+                        st.session_state.cookie_manager.remove('user_id')
+                    except Exception:
+                        pass
                 
-                file_extension = uploaded_file.name.split(".")[-1]
-                file_name = f"user_{st.session_state.user_id}.{file_extension}"
-                file_path = os.path.join(UPLOAD_DIR, file_name)
+                # 3. Hapus semua data memori KECUALI cookie_manager (agar tidak error)
+                for key in list(st.session_state.keys()):
+                    if key != "cookie_manager":
+                        del st.session_state[key]
                 
-                with open(file_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
+                # 4. KUNCI UTAMA ANTI-ZOMBIE: 
+                # Beri tahu app.py untuk mengabaikan cookie yang tertinggal di browser
+                st.session_state.logged_in = False
+                st.session_state.ignore_cookie = True 
                 
-                if update_user_avatar(st.session_state.user_id, file_path):
-                    st.session_state.avatar_path = file_path
-                    st.success("Foto berhasil diperbarui!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("Gagal menyimpan ke database.")
+                # 5. Rerun ke halaman login
+                st.rerun()
+                
+        with col_batal:
+            st.button("Batal", width="stretch", on_click=lambda: st.session_state.update(konfirmasi_keluar=False))
+       
                     
-    # =================================================
-    
-    st.divider()
-    
-    # Tombol Keluar Akun tetap di luar agar mudah dijangkau
-    if st.button("🚪 Keluar Akun", type="primary", use_container_width=True):
-        # 1. Hapus cookie dari peramban
-        cookie = CookieController()
-        cookie.remove('user_id')
-        
-        # 2. Bersihkan memori Streamlit
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        
-        time.sleep(1)
-        st.rerun()
+  
 
 def sidebar_profil():
-    # Hapus CSS panjang, biarkan kosong agar Streamlit mengurus UI-nya
-    st.divider()
+
     st.markdown(
         f"""
         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
@@ -109,42 +207,5 @@ def sidebar_profil():
         unsafe_allow_html=True
     )
 
-    if st.button("👁️ Lihat Profil", use_container_width=True):
+    if st.button(":material/account_circle: Lihat Profil", width="stretch"):
         tampilkan_profil()
-
-def init_session():
-    if "run_count" not in st.session_state:
-        st.session_state.run_count = 0
-    st.session_state.run_count += 1
-
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
-        st.session_state.user_id = None
-        st.session_state.name = ""
-        st.session_state.role = "user"
-        st.session_state.username = ""
-        st.session_state.avatar_path = ""
-
-    if "reg_form_key" not in st.session_state:
-        st.session_state.reg_form_key = 0
-
-    cookie = CookieController()
-
-    if st.session_state.run_count == 1:
-        st.info("🔄 Mensinkronisasi sesi Anda...")
-        st.progress(50)
-        st.stop()
-
-    if st.session_state.run_count > 1:
-        saved_user_id = cookie.get('user_id')
-        if saved_user_id and not st.session_state.logged_in:
-            user_data = get_user_by_id(saved_user_id)
-            if user_data:
-                st.session_state.logged_in = True
-                st.session_state.user_id = user_data["user_id"]
-                st.session_state.name = user_data["name"]
-                st.session_state.username = user_data["username"]
-                st.session_state.role = user_data["role"]
-                st.session_state.avatar_path = user_data["avatar_path"]
-    
-    return cookie

@@ -18,7 +18,7 @@ if SUPABASE_URL and SUPABASE_KEY:
 else:
     print("[WARNING] Kredensial Supabase tidak ditemukan di .env!")
 
-# --- FUNGSI FATSECRET (LAYER 1) ---
+# --- FUNGSI FATSECRET ---
 def get_fatsecret_token():
     client_id = os.getenv("FATSECRET_CLIENT_ID")
     client_secret = os.getenv("FATSECRET_CLIENT_SECRET")
@@ -48,27 +48,59 @@ def cari_nutrisi_makanan(nama_makanan: str, nama_asli: str = "") -> str:
     - nama_makanan: nama dalam bahasa Inggris (untuk FatSecret)
     - nama_asli: nama asli yang diketik pengguna dalam bahasa Indonesia (untuk database lokal)
     """
+    # Mencegah bug tipe data dict dari langchain
     if isinstance(nama_makanan, dict):
         nama_makanan = str(list(nama_makanan.values())[0])
     
-    nama_makanan = str(nama_makanan).strip()
-    kata_kunci = nama_makanan.lower().split()
+    # Bersihkan string dari kutip bawaan LLM dan spasi berlebih
+    clean_nama_makanan = str(nama_makanan).replace("'", "").replace('"', '').strip()
+    clean_nama_asli = str(nama_asli).replace("'", "").replace('"', '').strip()
     
-    print(f"\n[DEBUG] Memulai Pencarian 3-Tier untuk: '{nama_makanan}'")
+    # Prioritas kata kunci untuk log
+    kata_kunci_log = clean_nama_asli if clean_nama_asli else clean_nama_makanan
+    print(f"\n[DEBUG] Memulai Pencarian 3-Tier untuk: '{kata_kunci_log}'")
 
     # ==========================================
-    # LAYER 1: FATSECRET API
+    # LAYER 1: SUPABASE INTERNAL (DATABASE LOKAL)
     # ==========================================
+    print("[DEBUG] Mengecek Layer 1 (Database Lokal / Supabase)...")
+    if SUPABASE_URL and SUPABASE_KEY:
+        try:
+            # Prioritaskan 'nama_asli' untuk pencarian lokal agar tidak terjadi translasi
+            query_lokal = clean_nama_asli if clean_nama_asli else clean_nama_makanan
+            
+            if query_lokal:
+                # Pencarian ilike (case-insensitive) di tabel nutrition_data
+                db_response = supabase.table("nutrition_data").select("*").ilike("name", f"%{query_lokal}%").limit(3).execute()
+                
+                if db_response.data and len(db_response.data) > 0:
+                    lokal = db_response.data[0] # Ambil hasil paling relevan
+                    nama = lokal.get("name")
+                    kalori = lokal.get("calories", 0)
+                    lemak = lokal.get("fat", 0)
+                    karbo = lokal.get("carbohydrate", 0)
+                    protein = lokal.get("proteins", 0)
+                    
+                    print(f"[DEBUG] Ditemukan di Layer 1 (Supabase TKPI): {nama}")
+                    return f"[SUMBER: DATABASE LOKAL] Data gizi untuk {nama}: Calories: {kalori}kcal | Fat: {lemak}g | Carbs: {karbo}g | Protein: {protein}g"
+                else:
+                    print(f"[DEBUG] Layer 1 tidak menemukan '{query_lokal}'.")
+        except Exception as e:
+            print(f"[DEBUG] Error Layer 1 (Supabase): {str(e)}")
+    else:
+        print("[DEBUG] Supabase tidak dikonfigurasi dengan benar.")
+
+    # ==========================================
+    # LAYER 2: FATSECRET API
+    # ==========================================
+    print("[DEBUG] Layer 1 Kosong. Beralih ke Layer 2 (FatSecret)...")
     token = get_fatsecret_token()
     if token:
-        # [UBAHAN BARU]: Bersihkan string dari kutip dan spasi berlebih bawaan AI
-        clean_nama = nama_makanan.replace("'", "").replace('"', '').strip()
-        
         url = "https://platform.fatsecret.com/rest/server.api"
         headers = {"Authorization": f"Bearer {token}"}
         params = {
             "method": "foods.search",
-            "search_expression": clean_nama,
+            "search_expression": clean_nama_makanan, # FatSecret menggunakan versi Inggris/umum
             "format": "json",
             "region": "ID",
             "max_results": 5
@@ -78,57 +110,37 @@ def cari_nutrisi_makanan(nama_makanan: str, nama_asli: str = "") -> str:
             response = requests.get(url, headers=headers, params=params)
             if response.status_code == 200:
                 data = response.json()
-                
-                # [TAMBAHAN DEBUG]: Intip kueri bersih dan respons mentah API
-                print(f"[DEBUG] Kueri Bersih: '{clean_nama}'")
-                print(f"[DEBUG] RAW JSON: {data}")
+                print(f"[DEBUG] Kueri Bersih FatSecret: '{clean_nama_makanan}'")
                 
                 food_data = data.get('foods', {}).get('food')
-                
                 if food_data:
+                    # Normalisasi struktur jika JSON mengembalikan 1 objek (bukan list)
                     if not isinstance(food_data, list):
                         food_data = [food_data]
 
                     best_match = food_data[0]
-                    print(f"[DEBUG] Ditemukan di Layer 1: {best_match['food_name']}")
-                    return f"[SUMBER: FATSECRET] Data gizi untuk {best_match['food_name']}: {best_match['food_description']}"
+                    print(f"[DEBUG] Ditemukan di Layer 2: {best_match['food_name']}")
+                    
+                    return (
+                        f"[SUMBER: FATSECRET] Alat menemukan kandidat: '{best_match['food_name']}' "
+                        f"dengan nutrisi: {best_match['food_description']}. "
+                        f"PERINGATAN PENTING UNTUK AI: Evaluasi dengan logika Anda! Apakah '{best_match['food_name']}' "
+                        f"benar-benar makanan yang sama/relevan dengan '{clean_nama_makanan}' atau '{clean_nama_asli}'? "
+                        f"Jika TIDAK NYAMBUNG (contoh: user minta 'Krabby Patty' tapi alat memunculkan 'Potato Patty'), "
+                        f"TOLAK data FatSecret ini! Anda WAJIB melakukan estimasi sendiri dan gunakan tag '(Sumber: Estimasi AI)'."
+                    )
                 else:
-                    print(f"[DEBUG] FatSecret tidak menemukan '{clean_nama}'")
+                    print(f"[DEBUG] Layer 2 (FatSecret) tidak menemukan '{clean_nama_makanan}'.")
             else:
                 print(f"[DEBUG] API FatSecret Error: HTTP {response.status_code}")
         except Exception as e:
-            print(f"[DEBUG] Error Sistem Layer 1: {str(e)}")
-
-    # ==========================================
-    # LAYER 2: SUPABASE INTERNAL (KAGGLE/TKPI)
-    # ==========================================
-    print("[DEBUG] Layer 1 Gagal. Beralih ke Layer 2 (Supabase)...")
-    if SUPABASE_URL and SUPABASE_KEY:
-        try:
-            # Mencari menggunakan ilike (case-insensitive) pada kolom 'name'
-            # Menggunakan .ilike agar "Nasi Goreng" tetap cocok dengan "Nasi"
-            query_lokal = nama_asli if nama_asli.strip() else nama_makanan
-            db_response = supabase.table("nutrition_data").select("*").ilike("name", f"%{query_lokal}%").limit(3).execute()
-            
-            if db_response.data and len(db_response.data) > 0:
-                # Ambil hasil yang paling relevan (index 0)
-                lokal = db_response.data[0]
-                nama = lokal.get("name")
-                kalori = lokal.get("calories", 0)
-                lemak = lokal.get("fat", 0)
-                karbo = lokal.get("carbohydrate", 0)
-                protein = lokal.get("proteins", 0)
-                
-                print("[DEBUG] Ditemukan di Layer 2 (Supabase TKPI)")
-                return f"[SUMBER: DATABASE LOKAL] Data gizi untuk {nama}: Calories: {kalori}kcal | Fat: {lemak}g | Carbs: {karbo}g | Protein: {protein}g"
-        except Exception as e:
-            print(f"[DEBUG] Error Layer 2 (Supabase): {str(e)}")
+            print(f"[DEBUG] Error Sistem Layer 2: {str(e)}")
 
     # ==========================================
     # LAYER 3 TRIGGER: LLM ESTIMATION
     # ==========================================
     print("[DEBUG] Layer 1 & 2 Gagal. Memicu Layer 3 (Estimasi AI)...")
-    return f"DATA_TIDAK_DITEMUKAN: '{nama_makanan}' tidak ada di FatSecret maupun Supabase. INSTRUKSI UNTUK AI: Gunakan pengetahuan internal Anda (Layer 3) untuk memberikan estimasi gizi yang masuk akal, dan beritahu pengguna bahwa ini adalah '[Estimasi AI]'."
+    return f"DATA_TIDAK_DITEMUKAN: '{clean_nama_makanan}' atau '{clean_nama_asli}' tidak ada di Database Lokal maupun FatSecret. INSTRUKSI UNTUK AI: Gunakan pengetahuan internal Anda (Layer 3) untuk memberikan estimasi gizi yang masuk akal, dan beritahu pengguna bahwa ini adalah '[Estimasi AI]'."
 
 # Blok pengujian manual
 if __name__ == "__main__":
