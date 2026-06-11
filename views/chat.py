@@ -159,7 +159,7 @@ for msg in st.session_state.messages:
         with st.chat_message("human", avatar=":material/sentiment_satisfied:"):
             st.markdown(f"<span class='user-msg'></span>\n{msg['content']}", unsafe_allow_html=True)
     else:
-        # AI tetap pakai logo aplikasi kita
+        # Pakai ikon bawaan yang statis dan super ringan
         with st.chat_message("assistant", avatar=":material/robot:"):
             st.markdown(f"<span class='ai-msg'></span>\n{msg['content']}", unsafe_allow_html=True)
 
