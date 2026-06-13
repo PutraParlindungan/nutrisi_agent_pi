@@ -23,7 +23,6 @@ def get_avatar_src():
 def tampilkan_profil():
     col_a, col_b = st.columns([1.2, 2])
     with col_a:
-        # Pastikan get_avatar_src() punya fallback jika user belum punya foto
         st.image(get_avatar_src(), width="stretch")
     with col_b:
         st.markdown(f"### {st.session_state.name}")
