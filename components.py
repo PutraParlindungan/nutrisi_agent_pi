@@ -2,23 +2,23 @@ import os
 import time
 import base64
 import streamlit as st
+from backend.tools import supabase
 from backend.auth import update_user_avatar, update_user_name, update_user_password, cek_password_kuat
-
 
 def get_avatar_src():
     avatar_path = st.session_state.get("avatar_path")
-    if avatar_path and os.path.exists(avatar_path):
-        with open(avatar_path, "rb") as f:
-            data = f.read()
-            b64 = base64.b64encode(data).decode()
-            ext = avatar_path.split('.')[-1].lower()
-            mime = f"image/{ext}" if ext in ['png', 'jpeg', 'jpg'] else "image/png"
-            return f"data:{mime};base64,{b64}"
+    if avatar_path:
+        if avatar_path.startswith("http"):
+            return avatar_path
+        if os.path.exists(avatar_path):
+            with open(avatar_path, "rb") as f:
+                data = f.read()
+                b64 = base64.b64encode(data).decode()
+                ext = avatar_path.split('.')[-1].lower()
+                mime = f"image/{ext}" if ext in ['png', 'jpeg', 'jpg'] else "image/png"
+                return f"data:{mime};base64,{b64}"
     return f"https://api.dicebear.com/7.x/initials/svg?seed={st.session_state.get('username', 'user')}"
 
-# ==========================================
-# DIALOG INDUK UTAMA
-# ==========================================
 @st.dialog("Profil Akun")
 def tampilkan_profil():
     col_a, col_b = st.columns([1.2, 2])
@@ -90,16 +90,16 @@ def tampilkan_profil():
                         if uploaded_file.size > 2 * 1024 * 1024: # Validasi ukuran maks 2MB
                             st.error("Ukuran foto maksimal 2MB!")
                         else:
-                            UPLOAD_DIR = "assets/avatars"
-                            if not os.path.exists(UPLOAD_DIR): os.makedirs(UPLOAD_DIR)
-                            file_path = os.path.join(UPLOAD_DIR, f"user_{st.session_state.user_id}.{uploaded_file.name.split('.')[-1]}")
-                            with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
-                            
+                            file_ext = uploaded_file.name.split('.')[-1].lower()
+                            file_name = f"user_{st.session_state.user_id}.{file_ext}"
+                            supabase.storage.from_("avatars").upload(
+                                path=file_name, file=uploaded_file.getvalue(), file_options={"cache-control": "3600", "upsert": "true"}
+                            )
+                            file_path = supabase.storage.from_("avatars").get_public_url(file_name)
                             if update_user_avatar(st.session_state.user_id, file_path):
                                 st.session_state.avatar_path = file_path
-                                # Menutup sub-menu akan mengosongkan uploader box
                                 st.session_state.menu_edit_aktif = None 
-                                st.rerun() # Refresh agar foto di profil atas langsung berubah
+                                st.rerun() 
                     else:
                         st.warning("Silakan pilih foto terlebih dahulu.")
             with c2:
