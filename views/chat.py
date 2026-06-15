@@ -18,7 +18,6 @@ hasher = Hashids(salt=os.getenv("HASHIDS_SALT", "fallback_salt_aman"), min_lengt
 def dialog_rename(session_id, current_name):
     new_name = st.text_input("Nama Baru", value=current_name)
     
-    # Buat dua kolom untuk tombol
     col_simpan, col_batal = st.columns(2)
     
     with col_simpan:
@@ -72,7 +71,6 @@ if "current_session_id" not in st.session_state:
 
 if "messages" not in st.session_state:
     if st.session_state.current_session_id:
-        # Jika ID berhasil dipulihkan dari URL, tarik kembali riwayat chatnya!
         st.session_state.messages = get_session_messages(st.session_state.current_session_id, st.session_state.user_id)
     else:
         st.session_state.messages = []
