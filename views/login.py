@@ -72,7 +72,7 @@ with tab_login:
                 st.session_state.just_logged_in = True
                 
                 # Cookie berlaku selama 7 hari
-                st.session_state.cookie_manager.set('user_id', res["data"]["user_id"], max_age=604800)
+                st.session_state.cookie_manager.set('user_id', str(res["data"]["user_id"]), max_age=604800)
                 
                 st.success(f"Selamat datang, {res['data']['name']}!")
                 time.sleep(1)
