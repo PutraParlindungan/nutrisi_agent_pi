@@ -93,15 +93,11 @@ def tampilkan_profil():
                             try:
                                 file_ext = uploaded_file.name.split('.')[-1].lower()
                                 file_name = f"user_{st.session_state.user_id}.{file_ext}"
-                                
-                                # Proses Upload
                                 res = supabase.storage.from_("avatars").upload(
                                     path=file_name, 
                                     file=uploaded_file.getvalue(), 
                                     file_options={"cache-control": "3600", "upsert": "true"}
-                                )
-
-                                st.info(f"Respon Supabase: {res}")
+                                )              
                                 
                                 file_path = supabase.storage.from_("avatars").get_public_url(file_name)
                                 
@@ -110,11 +106,10 @@ def tampilkan_profil():
                                     st.session_state.menu_edit_aktif = None 
                                     st.success("✅ Foto berhasil diupload!")
                                     time.sleep(1.5)
-                                    st.rerun()
-                                    
+                                    st.rerun()         
+                            
                             except Exception as e:
-                                # INI KUNCI DEBUGGING-NYA
-                                st.error(f"❌ Supabase Error: {e}")
+                                st.error("Gagal mengunggah foto. Silakan periksa koneksi atau coba lagi nanti.")
                     else:
                         st.warning("Silakan pilih foto terlebih dahulu.")
             with c2:
@@ -180,22 +175,25 @@ def tampilkan_profil():
                 # 1. Bersihkan parameter URL
                 st.query_params.clear()
                 
-                # 2. Hapus cookie dengan aman
+                # 2. Hapus cookie secara paksa
                 if "cookie_manager" in st.session_state:
                     try:
+                        st.session_state.cookie_manager.delete('user_id') 
+                    except AttributeError:
                         st.session_state.cookie_manager.remove('user_id')
                     except Exception:
                         pass
                 
-                # 3. Hapus semua data memori KECUALI cookie_manager (agar tidak error)
+                # 3. Hapus semua data memori KECUALI cookie_manager
                 for key in list(st.session_state.keys()):
                     if key != "cookie_manager":
                         del st.session_state[key]
                 
-                # 4. KUNCI UTAMA ANTI-ZOMBIE: 
-                # Beri tahu app.py untuk mengabaikan cookie yang tertinggal di browser
                 st.session_state.logged_in = False
                 st.session_state.ignore_cookie = True 
+                
+                # 4. KUNCI SOLUSI: Beri waktu browser mengeksekusi penghapusan cookie
+                time.sleep(1.5)
                 
                 # 5. Rerun ke halaman login
                 st.rerun()
@@ -203,9 +201,6 @@ def tampilkan_profil():
         with col_batal:
             st.button("Batal", width="stretch", on_click=lambda: st.session_state.update(konfirmasi_keluar=False))
        
-                    
-  
-
 def sidebar_profil():
 
     st.markdown(
