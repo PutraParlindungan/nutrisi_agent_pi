@@ -100,6 +100,8 @@ def tampilkan_profil():
                                     file=uploaded_file.getvalue(), 
                                     file_options={"cache-control": "3600", "upsert": "true"}
                                 )
+
+                                st.info(f"Respon Supabase: {res}")
                                 
                                 file_path = supabase.storage.from_("avatars").get_public_url(file_name)
                                 
