@@ -105,7 +105,7 @@ def tampilkan_profil():
                                     st.session_state.avatar_path = file_path
                                     st.session_state.menu_edit_aktif = None 
                                     st.success("✅ Foto berhasil diupload!")
-                                    time.sleep(1.5)
+                                    time.sleep(2.0)
                                     st.rerun()         
                             
                             except Exception as e:
@@ -151,7 +151,7 @@ def tampilkan_profil():
                                 st.session_state.password_counter += 1
                                 st.session_state.menu_edit_aktif = None 
                                 st.success("✅ Password berhasil diubah!")
-                                time.sleep(1.5)
+                                time.sleep(2.0)
                                 st.rerun()
                             else:
                                 st.error(res["message"])
@@ -193,7 +193,7 @@ def tampilkan_profil():
                 st.session_state.ignore_cookie = True 
                 
                 # 4. KUNCI SOLUSI: Beri waktu browser mengeksekusi penghapusan cookie
-                time.sleep(1.5)
+                time.sleep(2.0)
                 
                 # 5. Rerun ke halaman login
                 st.rerun()
