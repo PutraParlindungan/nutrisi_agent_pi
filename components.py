@@ -118,7 +118,7 @@ def tampilkan_profil():
         # --- LOGIKA EDIT PASSWORD ---
         elif st.session_state.menu_edit_aktif == "password":
             st.divider()
-            st.caption("Perbarui Kata Password")
+            st.caption("Perbarui Password")
             
             # Inisialisasi counter unik jika belum ada
             if "password_counter" not in st.session_state:
