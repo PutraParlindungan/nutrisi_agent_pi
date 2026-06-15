@@ -204,24 +204,3 @@ def cek_password_kuat(password):
     if not re.search(r"[@$!%*?&#]", password):
         return False, "Password harus mengandung minimal 1 simbol khusus (@, $, !, %, dll)."
     return True, "Kuat"
-
-# ==========================================
-# BLOK PENGUJIAN (UNIT TESTING) DI TERMINAL
-# ==========================================
-if __name__ == "__main__":
-    print("--- MULAI TES MODUL AUTH ---")
-
-    # 1. Tes Registrasi Akun Baru
-    print("\n[1] Tes Registrasi:")
-    tes_daftar = register_user("Putra Parlindungan", "putra_pi", "rahasia123")
-    print(tes_daftar)
-
-    # 2. Tes Login dengan Password Benar
-    print("\n[2] Tes Login (Valid):")
-    tes_login_benar = login_user("putra_pi", "rahasia123")
-    print(tes_login_benar)
-
-    # 3. Tes Login dengan Password Salah
-    print("\n[3] Tes Login (Password Salah):")
-    tes_login_salah = login_user("putra_pi", "sandi_asal")
-    print(tes_login_salah)

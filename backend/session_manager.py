@@ -72,18 +72,22 @@ def save_message(session_id: int, sender_role: str, content: str) -> bool:
     finally:
         conn.close()
 
-def get_session_messages(session_id: int) -> list:
-    """Menarik seluruh riwayat obrolan dalam satu sesi secara berurutan."""
+def get_session_messages(session_id: int, user_id: int) -> list:
+    """Menarik riwayat obrolan dengan validasi user_id (Anti-IDOR)."""
     conn = get_db_connection()
     if not conn:
         return []
     try:
         with conn.cursor() as cur:
-            # Diurutkan berdasarkan created_at ASC agar percakapan runtut dari atas ke bawah
-            query = "SELECT sender_role, content FROM message_history WHERE session_id = %s ORDER BY created_at ASC;"
-            cur.execute(query, (session_id,))
+            query = """
+                SELECT mh.sender_role, mh.content 
+                FROM message_history mh
+                JOIN sessions s ON mh.session_id = s.session_id
+                WHERE s.session_id = %s AND s.user_id = %s 
+                ORDER BY mh.created_at ASC;
+            """
+            cur.execute(query, (session_id, user_id))
             rows = cur.fetchall()
-            # Mapping ke format dictionary yang dipakai Streamlit UI
             return [{"role": r[0], "content": r[1]} for r in rows]
     except Exception as e:
         print(f"Error get_session_messages: {e}")

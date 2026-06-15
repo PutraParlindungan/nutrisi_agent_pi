@@ -1,4 +1,5 @@
 import re
+import os
 import datetime
 import pytz
 import streamlit as st
@@ -8,7 +9,7 @@ from backend.agent import agent_executor, PERSONA_AI, trim_history
 from langchain_core.messages import HumanMessage, AIMessage
 from backend.session_manager import get_all_sessions, create_session, delete_session, save_message, get_session_messages, extract_and_save_nutrition, log_missing_food, rename_session
 
-hasher = Hashids(salt="rahasia_Agent Nutrisi_pi", min_length=8)
+hasher = Hashids(salt=os.getenv("HASHIDS_SALT", "fallback_salt_aman"), min_length=8)
 
 # ==========================================
 # FUNGSI DIALOG (Pop-up Frontend UI)
@@ -72,7 +73,7 @@ if "current_session_id" not in st.session_state:
 if "messages" not in st.session_state:
     if st.session_state.current_session_id:
         # Jika ID berhasil dipulihkan dari URL, tarik kembali riwayat chatnya!
-        st.session_state.messages = get_session_messages(st.session_state.current_session_id)
+        st.session_state.messages = get_session_messages(st.session_state.current_session_id, st.session_state.user_id)
     else:
         st.session_state.messages = []
 
@@ -108,7 +109,7 @@ with st.sidebar:
                     st.session_state.current_session_id = session["session_id"]
                     # Simpan juga nama sesi agar header menampilkan dengan benar
                     st.session_state.current_session_name = session["session_name"]
-                    st.session_state.messages = get_session_messages(session["session_id"])
+                    st.session_state.messages = get_session_messages(session["session_id"], st.session_state.user_id)
                     
                     # UBAH BARIS INI: gunakan session["session_id"]
                     st.query_params["session"] = hasher.encode(session["session_id"]) 
