@@ -11,7 +11,7 @@ from backend.session_manager import get_all_sessions, create_session, delete_ses
 hasher = Hashids(salt="rahasia_Agent Nutrisi_pi", min_length=8)
 
 # ==========================================
-# 2. FUNGSI DIALOG (Pop-up Frontend UI)
+# FUNGSI DIALOG (Pop-up Frontend UI)
 # ==========================================
 @st.dialog("✏️ Ganti Nama Riwayat")
 def dialog_rename(session_id, current_name):
@@ -48,13 +48,13 @@ def dialog_delete(session_id):
             st.rerun()
 
 # ==========================================
-# 3. LOGIKA HALAMAN UTAMA
+# LOGIKA HALAMAN UTAMA
 # ==========================================
 if not st.session_state.logged_in:
     st.warning("🔒 Akses ditolak. Silakan login di halaman utama.")
     st.stop()
 
-# 1. BACA URL TERLEBIH DAHULU
+# BACA URL TERLEBIH DAHULU
 query_params = st.query_params
 url_session_id = st.query_params.get("session")
 
@@ -168,11 +168,11 @@ if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
     sesi_baru = False
     
     if st.session_state.current_session_id is None:
-        sesi_baru = True # Tandai bahwa ini adalah pesan pertama (buat riwayat baru)
+        sesi_baru = True # Tanda bahwa ini adalah pesan pertama (buat riwayat baru)
         
         bulan_indo = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
         
-        # PERBAIKAN WAKTU: Kunci ke zona waktu WIB
+        # WAKTU: Kunci ke zona waktu WIB
         tz_wib = pytz.timezone('Asia/Jakarta')
         sekarang = datetime.datetime.now(tz_wib)
         session_name = f"{sekarang.day} {bulan_indo[sekarang.month]} {sekarang.year}"
@@ -189,11 +189,11 @@ if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
     save_message(st.session_state.current_session_id, "human", prompt)
     st.session_state.messages.append({"role": "human", "content": prompt})
     
-    # PERBAIKAN AVATAR USER
+    # AVATAR USER
     with st.chat_message("human", avatar=":material/sentiment_satisfied:"):
         st.markdown(f"<span class='user-msg'></span>\n{prompt}", unsafe_allow_html=True)
 
-    # PERBAIKAN AVATAR AI
+    # AVATAR AI
     with st.chat_message("assistant", avatar=":material/robot:"):
         with st.spinner("Menganalisis nutrisi..."):
             try:
@@ -204,7 +204,7 @@ if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
                     elif m["role"] == "assistant":
                         langchain_history.append(AIMessage(content=m["content"]))
                 
-                # --- INJEKSI METADATA WAKTU SERVER (TAK KASAT MATA) ---
+                # --- INJEKSI METADATA WAKTU SERVER ---
                 tz_wib = pytz.timezone('Asia/Jakarta')
                 jam_sekarang = datetime.datetime.now(tz_wib).strftime("%H:%M")
                 
@@ -218,8 +218,8 @@ if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
                 st.markdown(f"<span class='ai-msg'></span>\n{ai_reply}", unsafe_allow_html=True)
                 
             except Exception as e:
-                ai_reply = f"Error sistem: {str(e)}"
-                st.error(ai_reply)
+                st.error("⚠️ Maaf, layanan AI sedang sibuk atau batas token harian tercapai. Silakan coba beberapa saat lagi.")
+                st.stop()
 
     save_message(st.session_state.current_session_id, "assistant", ai_reply)
     st.session_state.messages.append({"role": "assistant", "content": ai_reply})

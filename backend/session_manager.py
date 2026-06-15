@@ -46,8 +46,6 @@ def delete_session(session_id: int):
         return False
     try:
         with conn.cursor() as cur:
-            # Karena tabel kita pakai aturan ON DELETE CASCADE, 
-            # menghapus sesi otomatis akan membersihkan seluruh pesan di dalamnya!
             cur.execute("DELETE FROM sessions WHERE session_id = %s;", (session_id,))
             conn.commit()
             return True

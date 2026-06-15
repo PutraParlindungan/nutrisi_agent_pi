@@ -38,7 +38,10 @@ hal_chat = st.Page("views/chat.py", title="Nutrisi Chat", icon=":material/forum:
 
 # === BLOK PEMERIKSAAN COOKIE ===
 if not st.session_state.logged_in and not st.session_state.get("ignore_cookie", False):
-    saved_user_id = cookie_manager.get('user_id')
+    try:
+        saved_user_id = cookie_manager.get('user_id')
+    except TypeError:
+        saved_user_id = None
     
     # Skenario 1: Cookie belum masuk dari browser (Putaran 1)
     if saved_user_id is None and not st.session_state.cookie_checked:
@@ -124,7 +127,7 @@ st.markdown("""
         padding-bottom: 0px !important; 
     }
     div[data-testid="stChatInput"]::after {
-        content: "Agent Nutrisi dapat membuat kesalahan. Harap periksa kembali informasi takaran gizinya.";
+        content: "Agent Nutrisi dapat membuat kesalahan.";
         position: absolute;
         bottom: -25px; 
         left: 0;

@@ -25,12 +25,12 @@ def register_user(name: str, username: str, password: str, role: str = 'user') -
 
     try:
         with conn.cursor() as cur:
-            # 1. Cek duplikasi username
+            # Cek duplikasi username
             cur.execute("SELECT username FROM users WHERE username = %s;", (username,))
             if cur.fetchone():
                 return {"success": False, "message": "Username sudah terdaftar. Silakan gunakan yang lain."}
 
-            # 2. Insert data ke tabel users (user_id dihilangkan agar auto-increment oleh Supabase)
+            # Insert data ke tabel users (user_id dihilangkan agar auto-increment oleh Supabase)
             query = """
                 INSERT INTO users (name, username, password_hash, role, is_active)
                 VALUES (%s, %s, %s, %s, TRUE)
