@@ -18,6 +18,7 @@ hasher = Hashids(salt=os.getenv("HASHIDS_SALT", "fallback_salt_aman"), min_lengt
 def dialog_rename(session_id, current_name):
     new_name = st.text_input("Nama Baru", value=current_name)
     
+    # Buat dua kolom untuk tombol
     col_simpan, col_batal = st.columns(2)
     
     with col_simpan:
