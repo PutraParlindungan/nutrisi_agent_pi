@@ -50,7 +50,7 @@ if not st.session_state.logged_in and not st.session_state.get("ignore_cookie", 
         pg = st.navigation([hal_login, hal_admin, hal_beranda, hal_chat], position="hidden")
         
         with st.spinner("Memuat sesi Anda..."):
-            time.sleep(1.5)
+            time.sleep(2.0)
         st.session_state.cookie_checked = True
         st.rerun() # Rerun ke putaran 2
         
