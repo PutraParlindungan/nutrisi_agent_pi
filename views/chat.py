@@ -164,78 +164,76 @@ for msg in st.session_state.messages:
             st.markdown(f"<span class='ai-msg'></span>\n{msg['content']}", unsafe_allow_html=True)
 
 if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
-    # 1. BUAT PENANDA (FLAG)
-    sesi_baru = False
     
-    if st.session_state.current_session_id is None:
-        sesi_baru = True # Tanda bahwa ini adalah pesan pertama (buat riwayat baru)
-        
-        bulan_indo = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-        
-        # WAKTU: Kunci ke zona waktu WIB
-        tz_wib = pytz.timezone('Asia/Jakarta')
-        sekarang = datetime.datetime.now(tz_wib)
-        session_name = f"{sekarang.day} {bulan_indo[sekarang.month]} {sekarang.year}"
-        
-        new_id = create_session(st.session_state.user_id, session_name)
-        if new_id:
-            st.session_state.current_session_id = new_id
-            st.session_state.current_session_name = session_name
-            st.query_params["session"] = hasher.encode(new_id) 
-        else:
-            st.error("Gagal membuat sesi di database!")
-            st.stop()
-
-    save_message(st.session_state.current_session_id, "human", prompt)
+    # 1. UPDATE UI DULU: Masukkan pesan ke state dan langsung render ke layar
     st.session_state.messages.append({"role": "human", "content": prompt})
     
-    # AVATAR USER
     with st.chat_message("human", avatar=":material/sentiment_satisfied:"):
         st.markdown(f"<span class='user-msg'></span>\n{prompt}", unsafe_allow_html=True)
 
-    # AVATAR AI
+    # 2. BUKA SPINNER AI: Pindahkan semua proses berat ke balik layar animasi ini
     with st.chat_message("assistant", avatar=":material/robot:"):
         with st.spinner("Menganalisis nutrisi..."):
+            
+            # --- PROSES DATABASE (Sesi & Simpan Pesan User) ---
+            sesi_baru = False
+            if st.session_state.current_session_id is None:
+                sesi_baru = True
+                bulan_indo = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+                tz_wib = pytz.timezone('Asia/Jakarta')
+                sekarang = datetime.datetime.now(tz_wib)
+                session_name = f"{sekarang.day} {bulan_indo[sekarang.month]} {sekarang.year}"
+                
+                new_id = create_session(st.session_state.user_id, session_name)
+                if new_id:
+                    st.session_state.current_session_id = new_id
+                    st.session_state.current_session_name = session_name
+                    st.query_params["session"] = hasher.encode(new_id) 
+
+            # Simpan pesan user SEKARANG (saat roda loading berputar)
+            save_message(st.session_state.current_session_id, "human", prompt)
+
+            # --- PROSES ORKESTRASI LLM ---
             try:
                 langchain_history = [PERSONA_AI]
+                # Ambil history kecuali pesan terakhir
                 for m in st.session_state.messages[:-1]: 
                     if m["role"] == "human":
                         langchain_history.append(HumanMessage(content=m["content"]))
                     elif m["role"] == "assistant":
                         langchain_history.append(AIMessage(content=m["content"]))
                 
-                # --- INJEKSI METADATA WAKTU SERVER ---
+                # Injeksi Waktu Server
                 tz_wib = pytz.timezone('Asia/Jakarta')
                 jam_sekarang = datetime.datetime.now(tz_wib).strftime("%H:%M")
-                
                 prompt_with_metadata = f"{prompt}\n\n[INFO SISTEM: Waktu server saat ini adalah jam {jam_sekarang} WIB]"
-                
                 langchain_history.append(HumanMessage(content=prompt_with_metadata))
 
                 langchain_history = trim_history(langchain_history, max_turns=10)
                 respons = agent_executor.invoke({"messages": langchain_history})
                 ai_reply = respons["messages"][-1].content
+                
+                # Render Jawaban AI
                 st.markdown(f"<span class='ai-msg'></span>\n{ai_reply}", unsafe_allow_html=True)
                 
             except Exception as e:
-                st.error("⚠️ Maaf, layanan AI sedang sibuk atau batas token harian tercapai. Silakan coba beberapa saat lagi.")
+                st.error("⚠️ Maaf, layanan AI sedang sibuk atau batas token tercapai. Silakan coba lagi.")
                 st.stop()
 
-    save_message(st.session_state.current_session_id, "assistant", ai_reply)
-    st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-    
-    extract_and_save_nutrition(st.session_state.user_id, ai_reply)
-    
-    if "estimasi ai" in ai_reply.lower():
-        # Regex untuk menangkap nama makanan di antara 📋 **...** yang sumbernya Estimasi AI
-        makanan_gagal = re.findall(r"📋\s*\*\*(.*?)\*\*\s*\(Sumber:.*Estimasi AI.*\)", ai_reply, re.IGNORECASE)
-        
-        if makanan_gagal:
-            for makanan in makanan_gagal:
-                log_missing_food(st.session_state.user_id, makanan.strip())
-        else:
-            # Fallback jika kebetulan format AI meleset sedikit
-            log_missing_food(st.session_state.user_id, prompt)
-    
+            # --- PROSES POST-LLM (Simpan Jawaban & Ekstrak Nutrisi) ---
+            save_message(st.session_state.current_session_id, "assistant", ai_reply)
+            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+            
+            extract_and_save_nutrition(st.session_state.user_id, ai_reply)
+            
+            if "estimasi ai" in ai_reply.lower():
+                makanan_gagal = re.findall(r"📋\s*\*\*(.*?)\*\*\s*\(Sumber:.*Estimasi AI.*\)", ai_reply, re.IGNORECASE)
+                if makanan_gagal:
+                    for makanan in makanan_gagal:
+                        log_missing_food(st.session_state.user_id, makanan.strip())
+                else:
+                    log_missing_food(st.session_state.user_id, prompt)
+
+    # Rerun hanya untuk memunculkan sesi di sidebar (jika sesi baru)
     if sesi_baru:
         st.rerun()
