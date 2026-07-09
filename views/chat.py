@@ -155,23 +155,19 @@ st.divider()
 # AREA OBROLAN & INPUT
 for msg in st.session_state.messages:
     if msg["role"] == "human":
-        # Pakai ikon bawaan yang statis dan super ringan
         with st.chat_message("human", avatar=":material/sentiment_satisfied:"):
             st.markdown(f"<span class='user-msg'></span>\n{msg['content']}", unsafe_allow_html=True)
     else:
-        # Pakai ikon bawaan yang statis dan super ringan
         with st.chat_message("assistant", avatar=":material/robot:"):
             st.markdown(f"<span class='ai-msg'></span>\n{msg['content']}", unsafe_allow_html=True)
 
 if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
     
-    # 1. UPDATE UI DULU: Masukkan pesan ke state dan langsung render ke layar
     st.session_state.messages.append({"role": "human", "content": prompt})
     
     with st.chat_message("human", avatar=":material/sentiment_satisfied:"):
         st.markdown(f"<span class='user-msg'></span>\n{prompt}", unsafe_allow_html=True)
 
-    # 2. BUKA SPINNER AI: Pindahkan semua proses berat ke balik layar animasi ini
     with st.chat_message("assistant", avatar=":material/robot:"):
         with st.spinner("Menganalisis nutrisi..."):
             
@@ -193,7 +189,6 @@ if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
             # Simpan pesan user SEKARANG (saat roda loading berputar)
             save_message(st.session_state.current_session_id, "human", prompt)
 
-            # --- PROSES ORKESTRASI LLM ---
             try:
                 langchain_history = [PERSONA_AI]
                 # Ambil history kecuali pesan terakhir
@@ -234,6 +229,5 @@ if prompt := st.chat_input("Tuliskan makanan yang baru saja kamu konsumsi..."):
                 else:
                     log_missing_food(st.session_state.user_id, prompt)
 
-    # Rerun hanya untuk memunculkan sesi di sidebar (jika sesi baru)
     if sesi_baru:
         st.rerun()

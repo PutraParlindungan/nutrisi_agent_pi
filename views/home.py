@@ -9,7 +9,6 @@ with st.sidebar:
 col_logo, col_judul = st.columns([1, 10], vertical_alignment="center")
 
 with col_logo:
-    # Menggunakan path logo kustom kita
     st.image("assets/favicon.png", width="stretch") 
 
 with col_judul:
@@ -82,7 +81,7 @@ with st.expander("🛠️ Spesifikasi & Arsitektur Teknis (Klik untuk Detail)"):
       </tr>
       <tr>
         <td style="padding: 10px; border: 1px solid #444;"><b>Model (LLM)</b></td>
-        <td style="padding: 10px; border: 1px solid #444;">Llama-3.3-70b-Versatile (via Groq)</td>
+        <td style="padding: 10px; border: 1px solid #444;">openai/gpt-oss-120b (via Groq)</td>
       </tr>
       <tr>
         <td style="padding: 10px; border: 1px solid #444;"><b>Cloud Database</b></td>

@@ -3,10 +3,8 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.prebuilt import create_react_agent
-
 from backend.tools import cari_nutrisi_makanan
 
-# Membungkam peringatan
 warnings.filterwarnings("ignore")
 
 load_dotenv()

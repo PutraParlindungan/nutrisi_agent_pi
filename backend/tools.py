@@ -66,15 +66,13 @@ def cari_nutrisi_makanan(nama_makanan: str, nama_asli: str = "") -> str:
     print("[DEBUG] Mengecek Layer 1 (Database Lokal / Supabase)...")
     if SUPABASE_URL and SUPABASE_KEY:
         try:
-            # Prioritaskan 'nama_asli' untuk pencarian lokal agar tidak terjadi translasi
             query_lokal = clean_nama_asli if clean_nama_asli else clean_nama_makanan
             
             if query_lokal:
-                # Pencarian ilike (case-insensitive) di tabel nutrition_data
                 db_response = supabase.table("nutrition_data").select("*").ilike("name", f"%{query_lokal}%").limit(3).execute()
                 
                 if db_response.data and len(db_response.data) > 0:
-                    lokal = db_response.data[0] # Ambil hasil paling relevan
+                    lokal = db_response.data[0] 
                     nama = lokal.get("name")
                     kalori = lokal.get("calories", 0)
                     lemak = lokal.get("fat", 0)
@@ -100,7 +98,7 @@ def cari_nutrisi_makanan(nama_makanan: str, nama_asli: str = "") -> str:
         headers = {"Authorization": f"Bearer {token}"}
         params = {
             "method": "foods.search",
-            "search_expression": clean_nama_makanan, # FatSecret menggunakan versi Inggris/umum
+            "search_expression": clean_nama_makanan, 
             "format": "json",
             "region": "ID",
             "max_results": 5
@@ -114,7 +112,6 @@ def cari_nutrisi_makanan(nama_makanan: str, nama_asli: str = "") -> str:
                 
                 food_data = data.get('foods', {}).get('food')
                 if food_data:
-                    # Normalisasi struktur jika JSON mengembalikan 1 objek (bukan list)
                     if not isinstance(food_data, list):
                         food_data = [food_data]
 
