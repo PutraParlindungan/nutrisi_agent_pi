@@ -90,21 +90,34 @@ def tampilkan_profil():
                         if uploaded_file.size > 2 * 1024 * 1024: # Validasi ukuran maks 2MB
                             st.error("Ukuran foto maksimal 2MB!")
                         else:
-                            file_path = ""
                             try:
                                 file_ext = uploaded_file.name.split('.')[-1].lower()
-                                file_name = f"user_{st.session_state.user_id}.{file_ext}"
-                                res = supabase.storage.from_("avatars").upload(
+                                
+                                # 1. HAPUS FOTO LAMA DI SUPABASE (Mencegah bucket penuh)
+                                old_path = st.session_state.get("avatar_path", "")
+                                if old_path and "user_" in old_path:
+                                    old_file = old_path.split("/")[-1].split("?")[0]
+                                    try:
+                                        supabase.storage.from_("avatars").remove([old_file])
+                                    except:
+                                        pass # Abaikan jika file lama tidak ditemukan di server
+                                
+                                # 2. BUAT NAMA FILE FISIK YANG BARU & UNIK
+                                file_name = f"user_{st.session_state.user_id}_{int(time.time())}.{file_ext}"
+                                
+                                # 3. UPLOAD FILE BARU (Tanpa menumpuk file lama)
+                                supabase.storage.from_("avatars").upload(
                                     path=file_name, 
                                     file=uploaded_file.getvalue(), 
-                                    file_options={"cache-control": "3600", "upsert": "true"}
+                                    file_options={"cache-control": "3600", "x-upsert": "true"}
                                 )              
                                 
+                                # 4. AMBIL URL MURNI
                                 file_path = supabase.storage.from_("avatars").get_public_url(file_name)
 
-                                unique_path = f"{file_path}?t={int(time.time())}"
-                                if update_user_avatar(st.session_state.user_id, unique_path):
-                                    st.session_state.avatar_path = unique_path
+                                # 5. SIMPAN KE DATABASE
+                                if update_user_avatar(st.session_state.user_id, file_path):
+                                    st.session_state.avatar_path = file_path
                                     st.session_state.menu_edit_aktif = None 
                                     st.success("✅ Foto berhasil diupload!")
                                     time.sleep(2.0)
