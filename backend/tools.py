@@ -67,10 +67,8 @@ def cari_nutrisi_makanan(nama_makanan: str, nama_asli: str = "") -> str:
     if SUPABASE_URL and SUPABASE_KEY:
         try:
             query_lokal = clean_nama_asli if clean_nama_asli else clean_nama_makanan
-            
             if query_lokal:
                 db_response = supabase.table("nutrition_data").select("*").ilike("name", f"%{query_lokal}%").limit(3).execute()
-                
                 if db_response.data and len(db_response.data) > 0:
                     lokal = db_response.data[0] 
                     nama = lokal.get("name")

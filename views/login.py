@@ -3,8 +3,6 @@ import streamlit as st
 from backend import auth 
 from backend.auth import cek_password_kuat
 
-
-
 # Paksa sembunyikan sidebar di halaman login
 st.markdown("""<style>[data-testid="stSidebar"]{display:none}</style>""", unsafe_allow_html=True)
 
@@ -14,7 +12,6 @@ st.markdown("""<style>[data-testid="stSidebar"]{display:none}</style>""", unsafe
 col_logo, col_judul = st.columns([1, 10], vertical_alignment="center")
 
 with col_logo:
-    # Menggunakan path logo kustom kita
     st.image("assets/favicon.png", width="stretch") 
 
 with col_judul:

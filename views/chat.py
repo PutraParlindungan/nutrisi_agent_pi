@@ -18,7 +18,6 @@ hasher = Hashids(salt=os.getenv("HASHIDS_SALT", "fallback_salt_aman"), min_lengt
 def dialog_rename(session_id, current_name):
     new_name = st.text_input("Nama Baru", value=current_name)
     
-    # Buat dua kolom untuk tombol
     col_simpan, col_batal = st.columns(2)
     
     with col_simpan:
@@ -101,7 +100,6 @@ with st.sidebar:
                 label = session["session_name"]
                 is_active_session = st.session_state.get("current_session_id") == session["session_id"]
                 if is_active_session:
-                    # Tandai sesi yang sedang aktif dengan indikator warna
                     label = f"{label}"
 
                 if st.button(label, key=f"btn_sess_{session['session_id']}", width="stretch", type="primary" if is_active_session else "secondary"):
@@ -125,16 +123,12 @@ with st.sidebar:
                         dialog_delete(session["session_id"])
 
     st.divider()
-    sidebar_profil()
-    
+    sidebar_profil()  
 
 # HEADER
-# Tentukan nama sesi aktif agar tidak terjadi NameError saat ditampilkan di header.
 nama_sesi_aktif = ""
 if st.session_state.get("current_session_id"):
-    # Jika nama sudah tersimpan di session_state gunakan itu
     nama_sesi_aktif = st.session_state.get("current_session_name", "")
-    # Jika belum, coba ambil dari daftar sesi di DB
     if not nama_sesi_aktif:
         try:
             sessions_lookup = get_all_sessions(st.session_state.user_id)

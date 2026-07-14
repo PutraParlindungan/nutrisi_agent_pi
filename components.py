@@ -90,6 +90,7 @@ def tampilkan_profil():
                         if uploaded_file.size > 2 * 1024 * 1024: # Validasi ukuran maks 2MB
                             st.error("Ukuran foto maksimal 2MB!")
                         else:
+                            file_path = ""
                             try:
                                 file_ext = uploaded_file.name.split('.')[-1].lower()
                                 file_name = f"user_{st.session_state.user_id}.{file_ext}"
@@ -100,9 +101,10 @@ def tampilkan_profil():
                                 )              
                                 
                                 file_path = supabase.storage.from_("avatars").get_public_url(file_name)
-                                
-                                if update_user_avatar(st.session_state.user_id, file_path):
-                                    st.session_state.avatar_path = file_path
+
+                                unique_path = f"{file_path}?t={int(time.time())}"
+                                if update_user_avatar(st.session_state.user_id, unique_path):
+                                    st.session_state.avatar_path = unique_path
                                     st.session_state.menu_edit_aktif = None 
                                     st.success("✅ Foto berhasil diupload!")
                                     time.sleep(2.0)

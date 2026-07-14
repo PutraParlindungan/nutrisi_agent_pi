@@ -6,7 +6,6 @@ from langgraph.prebuilt import create_react_agent
 from backend.tools import cari_nutrisi_makanan
 
 warnings.filterwarnings("ignore")
-
 load_dotenv()
 
 # 1. INISIALISASI LLM GROQ

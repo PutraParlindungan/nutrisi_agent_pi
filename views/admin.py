@@ -4,6 +4,22 @@ import streamlit as st
 from components import sidebar_profil
 from backend.admin_ops import get_all_users, toggle_user_status, delete_user_permanently, get_system_stats, get_missing_foods_log
 
+@st.dialog("⚠️ Peringatan Fatal")
+def dialog_hapus_user_admin(user_id, username, nama_lengkap):
+    st.error(f"Apakah Anda yakin ingin memusnahkan akun **{nama_lengkap} (@{username})** beserta seluruh datanya? Tindakan ini tidak bisa dibatalkan.")
+    
+    col_y, col_n = st.columns(2)
+    with col_y:
+        if st.button("Ya, Musnahkan", type="primary", width="stretch"):
+            if delete_user_permanently(user_id):
+                st.toast(f"Akun @{username} berhasil dihapus permanen!", icon="🗑️")
+                import time
+                time.sleep(1.5)
+                st.rerun()
+    with col_n:
+        if st.button("Batal", width="stretch"):
+            st.rerun()
+
 # 1. PROTEKSI HALAMAN (WAJIB ADA)
 if not st.session_state.get("logged_in") or st.session_state.get("role") != "admin":
     st.error("🚫 Akses Ditolak: Halaman ini eksklusif untuk Admin.")
@@ -21,22 +37,6 @@ with st.sidebar:
 st.title("🛡️ Dashboard Admin")
 st.divider()
 
-@st.dialog("⚠️ Peringatan Fatal")
-def dialog_hapus_user_admin(user_id, username, nama_lengkap):
-    st.error(f"Apakah Anda yakin ingin memusnahkan akun **{nama_lengkap} (@{username})** beserta seluruh datanya? Tindakan ini tidak bisa dibatalkan.")
-    
-    col_y, col_n = st.columns(2)
-    with col_y:
-        if st.button("Ya, Musnahkan", type="primary", width="stretch"):
-            if delete_user_permanently(user_id):
-                st.toast(f"Akun @{username} berhasil dihapus permanen!", icon="🗑️")
-                import time
-                time.sleep(1.5)
-                st.rerun()
-    with col_n:
-        if st.button("Batal", width="stretch"):
-            st.rerun()
-
 # 2. Papan Indikator
 stats = get_system_stats()
 col1, col2, col3 = st.columns(3)
@@ -49,7 +49,6 @@ st.divider()
 
 # 3. AREA NAVIGASI UTAMA
 tab1, tab2 = st.tabs(["👥 Mengelola Pengguna", "⚠️ Makanan Gagal Dilacak"])
-
 with tab1:
     st.subheader("👥 Mengelola Pengguna")
     users_data = get_all_users()
@@ -76,7 +75,6 @@ with tab1:
                             time.sleep(1)
                             st.rerun()
                 with col_btn2:
-                    # Saat diklik, jangan langsung hapus, tapi panggil pop-up dialog
                     if st.button("🔴 Hapus Akun", type="primary", width="stretch"):
                         dialog_hapus_user_admin(user_target["ID"], user_target["Username"], user_target["Nama"])
                 st.divider()
@@ -90,7 +88,6 @@ with tab1:
         else:
             df_display = df_users
             
-        # Tampilkan tabel
         st.dataframe(df_display, width="stretch", height=400, hide_index=True)
     else:
         st.info("Belum ada pengguna.")
